@@ -1,14 +1,11 @@
-output_dir: results/test3
+output_dir: results/test
 with_drone: True
-max_time: 3
-fps: 1
-
-# center_lat: 36.369527
-# center_lon: 127.362847
+max_time: 30
+fps: 2
 
 distance_rescale: 1
 
-initial_positions: #coordinates : [x,y]
+initial_positions:
   RED:
     ARTILLERY: [[50,400],[50,400],[50,400],[50,400],[50,400],[50,400]]
     DRONE: [[650,350],[650,350]]
@@ -21,7 +18,7 @@ initial_positions: #coordinates : [x,y]
     ]
     COMMAND_POST: [[350,300]]
   BLUE:
-    ARTILLERY: [[700,350],[700,350],[700,350],[700,350],[700,350],[700,350]]
+    ARTILLERY: [[100,350],[100,350],[700,350],[700,350],[700,350],[700,350]]
     DRONE: [[100,300],[100,300]]
     TANK: [[650,100],[665,100],[660,90],[660,95]]
     ANTI_TANK: [[500,105],[505,105],[650,205],[645,200],[655,155],[650,155]]

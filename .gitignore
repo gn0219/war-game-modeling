@@ -1,4 +1,6 @@
 # Python cache files
 __pycache__/
 models/__pycache__/
+database/.DS_Store
 .vscode
+.DS_Store

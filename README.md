@@ -15,11 +15,14 @@
     - 표적 상태 -> State
     - 손상 유형 -> Kill type
     - 그외 M-Kill 등으로 수정
+- 기타 오류 수정
+    - CombatUnit Hashable Type으로 변경
+    - 단위 시간당 하나의 actor가 여러 target 공격 가능하였던 것을, 하나의 time에 대해 하나의 actor가 하나의 target만 공격 가능하도록 수정
 
 ## TODO
-- 전체적으로 화력, 기동, 탐지, 지형 잘 반영되었는지 확인
-- 커맨드 레벨 반영해야 함
-- 유닛의 이동방향 조정 필요
+- 드론 구현 필요
+- 유닛 Action 조정
+- Eligible_target_list 사용하지 않음
 - 지형 특성 반영 구조 추가
     - 가시선 분석 (현재 x, y 좌표만 사용) - `combat.py`, `def los` function 내 조정 필요
     - 수로 등 장애물 인식

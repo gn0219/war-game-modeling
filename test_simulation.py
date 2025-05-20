@@ -22,23 +22,23 @@ def create_test_units(cfg):
     units = []
     initial_positions = cfg.get('initial_positions', {})
 
-    # 팀별 유닛 사양: (cfg 키, 기본 위치)
+    # 팀별 유닛 사양: (cfg 키)
     team_specs = {
         'RED': {
-            'DRONE': ('num_drone_red',    (100, 100)),
-            'TANK': ('num_tank_red',      (120, 120)),
-            'ANTI_TANK': ('num_at_red',    (140, 140)),
-            'INFANTRY': ('num_infantry_red', (160, 160)),
-            'COMMAND_POST': ('num_cp_red', (180, 180)),
-            'ARTILLERY': ('num_artillery_red', (200, 200)),
+            'DRONE': 'num_drone_red',
+            'TANK': 'num_tank_red',
+            'ANTI_TANK': 'num_at_red',
+            'INFANTRY': 'num_infantry_red',
+            'COMMAND_POST': 'num_cp_red',
+            'ARTILLERY': 'num_artillery_red',
         },
         'BLUE': {
-            'DRONE': ('num_drone_blue',    (300, 300)),
-            'TANK': ('num_tank_blue',      (320, 320)),
-            'ANTI_TANK': ('num_at_blue',    (340, 340)),
-            'INFANTRY': ('num_infantry_blue', (360, 360)),
-            'COMMAND_POST': ('num_cp_blue', (380, 380)),
-            'ARTILLERY': ('num_artillery_blue', (400, 400)),
+            'DRONE': 'num_drone_blue',
+            'TANK': 'num_tank_blue',
+            'ANTI_TANK': 'num_at_blue',
+            'INFANTRY': 'num_infantry_blue',
+            'COMMAND_POST': 'num_cp_blue',
+            'ARTILLERY': 'num_artillery_blue',
         },
     }
 
@@ -48,19 +48,22 @@ def create_test_units(cfg):
         for team, specs in team_specs.items()
     }
 
-    def get_positions(team, unit_type, count, default_pos):
+    def get_positions(team, unit_type, count):
         pos_list = initial_positions.get(team, {}).get(unit_type)
-        if pos_list and len(pos_list) >= count:
-            return [tuple(p) for p in pos_list[:count]]
-        return [default_pos] * count
+        if not pos_list or len(pos_list) < count:
+            raise ValueError(f"Not enough initial positions for {team} {unit_type}. Required: {count}, Provided: {len(pos_list) if pos_list else 0}")
+        return [tuple(p) for p in pos_list[:count]]
 
-    def add_units(team, unit_type, cfg_key, default_pos):
+    def add_units(team, unit_type, cfg_key):
         # 드론 옵션 체크
         if unit_type == 'DRONE' and not cfg.get('with_drone', True):
             return
         
         count = cfg.get(cfg_key, 0)
-        positions = get_positions(team, unit_type, count, default_pos)
+        if count == 0:
+            return
+            
+        positions = get_positions(team, unit_type, count)
         
         for i, pos in enumerate(positions):
             unit = Unit(getattr(UnitType, unit_type), team, pos)
@@ -71,8 +74,8 @@ def create_test_units(cfg):
 
     # 각 팀과 유닛 타입에 대해 유닛 생성
     for team, specs in team_specs.items():
-        for unit_type, (cfg_key, default_pos) in specs.items():
-            add_units(team, unit_type, cfg_key, default_pos)
+        for unit_type, cfg_key in specs.items():
+            add_units(team, unit_type, cfg_key)
 
     return units
 
@@ -105,6 +108,7 @@ def run_simulation(cfg):
     # 시뮬레이션 루프
     while current_time < max_time:
         print("Current time / max_time: ", current_time, "/", max_time)
+
         # ── 예약된 MOVE/FIRE 이벤트 처리 ────────────────────────────
         while event_queue.peek_next_time() is not None and event_queue.peek_next_time() <= current_time:
             evt = event_queue.get_next_event()
@@ -121,23 +125,25 @@ def run_simulation(cfg):
                 ))
 
             elif evt.action == "Fire":
-                # 1) 화력 실행
-                for tgt in evt.details["targets"]:
-                    combat_system.fire(evt.actor, tgt, event_queue, current_time)
+                # 1) 화력 실행 - combat.py에서 이미 선택된 단일 타겟 사용
+                target = evt.details["targets"][0]  # combat.py에서 이미 선택된 단일 타겟
+                combat_system.fire(evt.actor, target, event_queue, current_time)
                 evt.actor.action = Action.FIRE
-                # 전투 로그
-                for tgt in evt.details["targets"]:
-                    logger.log_event(Event(
-                        timestamp=current_time,
-                        event_type="COMBAT",
-                        actor_id=evt.actor.unit.id,
-                        action="FIRE",
-                        target_id=tgt.unit.id,
-                        details={
-                            "hit": tgt.state in (UnitState.M_KILL, UnitState.F_KILL, UnitState.K_KILL),
-                            "resulting_state": tgt.state.value
-                        }
-                    ))
+                
+                # 전투 로그 - 선택된 타겟에 대한 로그 기록
+                logger.log_event(Event(
+                    timestamp=current_time,
+                    event_type="COMBAT",
+                    actor_id=evt.actor.unit.id,
+                    action="FIRE",
+                    target_id=target.unit.id,
+                    details={
+                        "hit": target.state in (UnitState.M_KILL, UnitState.F_KILL, UnitState.K_KILL),
+                        "resulting_state": target.state.value
+                    }
+                ))
+                logger2.write(f"Time {current_time:.1f}: {evt.actor.unit.id} HIT {target.unit.id} resulting_state={target.state.value}\n")
+                
                 # 2) 교전 후 상태에 따른 분류: 기동 정지 혹은 경로 탐색
                 st = evt.actor.state
                 if st in [UnitState.ALIVE, UnitState.F_KILL] and evt.actor.current_goal is not None:
@@ -153,7 +159,6 @@ def run_simulation(cfg):
                 else:
                     # 기동 불능(M_KILL) 또는 완파(K_KILL): 더 이상 이동하지 않도록 목표 초기화
                     evt.actor.current_goal = None
-
 
         # 현재 상태 스냅샷 저장
         state_snapshot = StateSnapshot(
@@ -179,8 +184,7 @@ def run_simulation(cfg):
             if u.action in (Action.FIRE, Action.MANEUVER):
                 u.action = Action.STOP
         
-        # 페이즈 전환 평가 -> phase 전환 조건을 만족했는지 확인
-        # 검토 필요
+        # 페이즈 전환 평가
         if command_system.evaluate_dc("RED"):
             command_system.transition_phase("RED")
         if command_system.evaluate_dc("BLUE"):
@@ -198,19 +202,6 @@ def run_simulation(cfg):
                 else:
                     command_system.blue_command = Command.create_phase_3_command("BLUE")
 
-
-        # === 탐지 로직 적용 ===
-        # 탐지 및 화력 예약 -> 코드 수정
-        # 정지 상태(ES)에서 적을 감지하면 곧바로 Fire 이벤트(FEL)에 예약 -> combat.py에 넣을 지 여기에 그대로 둘 지는 화력 스케쥴 마저 코딩하고 결정.
-        for unit in units:
-            if not unit.unit.is_alive():
-                continue
-            combat_system.detect(unit, units, terrain_system)
-            combat_system.available_target(unit)
-            combat_system.finding_target(unit, event_queue, current_time)
-        
-        
-        
         # ── 기동 명령 예약 ───────────────────────────────────
         for unit in units:
             if not unit.unit.is_alive() or unit.unit.unit_type == UnitType.COMMAND_POST:
@@ -229,7 +220,6 @@ def run_simulation(cfg):
                 terrain=terrain_system,
                 all_units=units
             )
-        
         
         # 시간 업데이트
         current_time += time_step
@@ -273,5 +263,8 @@ def run_simulation(cfg):
     visualizer.plot_metrics(logger.log_file)
 
 if __name__ == "__main__":
+    start_time = time.time()
     config = load_config('config.yaml')
     run_simulation(config) 
+    end_time = time.time()
+    print(f"Simulation completed in {end_time - start_time:.2f} seconds")
