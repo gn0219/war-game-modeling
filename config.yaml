@@ -1,10 +1,10 @@
-output_dir: results/test2
+output_dir: results/test3
 with_drone: True
-max_time: 100
-fps: 4
+max_time: 3
+fps: 1
 
-center_lat: 36.369527
-center_lon: 127.362847
+# center_lat: 36.369527
+# center_lon: 127.362847
 
 distance_rescale: 1
 

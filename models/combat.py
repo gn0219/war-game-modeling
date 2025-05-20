@@ -68,6 +68,14 @@ class CombatUnit:
             self.detectability = db["detectability"]
             self.mountain_detect_prob = db["mountain_prob"]
 
+    def __hash__(self):
+        return hash((self.unit, self.state, self.action))
+
+    def __eq__(self, other):
+        if not isinstance(other, CombatUnit):
+            return NotImplemented
+        return (self.unit, self.state, self.action) == (other.unit, other.state, other.action)
+
     def get_target_state(self) -> TargetState:
         """Get the current target state based on movement and defilade status"""
         if self.is_defilade:
@@ -173,7 +181,7 @@ class CombatSystem:
         """공격자의 무기 특성에 따라 유효 타겟인지 판정 -> 무기 특성 필터링"""
         # Infantry(Rifle) → Tank, Artillery 사격 불가
         if attacker.unit_type == UnitType.INFANTRY:
-            return target.unit_type not in [UnitType.TANK, UnitType.ARTILLERY]
+            return target.unit.unit_type not in [UnitType.TANK, UnitType.ARTILLERY]
 
         # Drone 은 사격 불가
         if attacker.unit_type == UnitType.DRONE:
@@ -189,7 +197,7 @@ class CombatSystem:
         unit.eligible_target_list.clear()
         for target in unit.target_list:
             # 무기별 사거리 필터링
-            distance = self._calculate_distance(unit.unit.position, target.position)
+            distance = self._calculate_distance(unit.unit.position, target.unit.position)
             max_range = self.WEAPON_RANGES[unit.unit.unit_type]
             if distance > max_range:
                 continue
@@ -274,7 +282,7 @@ class CombatSystem:
         # 4) 각 후보에 대해 최종 스코어 계산: 0.5 * (화력 우선순위) - 0.5 * (우군 피해 위험)
         scores = {}
         for tgt in candidates:
-            priority_score = type_priority.get(tgt.unit_type, max(type_priority.values()) + 1)
+            priority_score = type_priority.get(tgt.unit.unit_type, max(type_priority.values()) + 1)
             ff_score = friendly_fire_scores[tgt]
             scores[tgt] = 0.8 * priority_score - 0.2 * ff_score
         # 5) 스코어가 가장 낮은(=가장 우선) 목표 반환
@@ -283,7 +291,7 @@ class CombatSystem:
 
     def _select_direct_fire_target(self, unit: CombatUnit) -> CombatUnit:
         """직사화기(직접 조준) 무기용 타겟 선정 (가장 가까운 적)"""
-        return min(unit.eligible_target_list, key=lambda t: self._calculate_distance(unit.unit.position, t.position))
+        return min(unit.eligible_target_list, key=lambda t: self._calculate_distance(unit.unit.position, t.unit.position))
 
     @staticmethod
     def _calculate_distance(pos1: Tuple[float, float], pos2: Tuple[float, float]) -> float:
@@ -404,7 +412,7 @@ class CombatSystem:
             - Tank: triangular(6.0,12.0,8.0)  → 평균 8초
             => 따로 재장전 함수를 만든다.
         """
-        distance = self._calculate_distance(unit.unit.position, target.position)
+        distance = self._calculate_distance(unit.unit.position, target.unit.position)
         weapon_type = "tank" if unit.unit.unit_type == UnitType.TANK else "rifle"
         # [1] 명중 확률
         hit_prob = self.prob_system.get_hit_probability(
@@ -553,9 +561,10 @@ class CombatSystem:
         '''픽셀 scale할 때 난수도 조정 필요'''
         sx, sy = map(int, unit.unit.position)
         base_gx, base_gy = map(int, goal) # command에서 이동 위치 좌표 받아와야함.
+        
         # 난수 생성
-        jitter_x = _np.random.uniform(-10, 10)
-        jitter_y = _np.random.uniform(-10, 10)
+        jitter_x = np.random.uniform(-10, 10)
+        jitter_y = np.random.uniform(-10, 10)
         gx = int(base_gx + jitter_x)
         gy = int(base_gy + jitter_y)
         # 난수 적용 시 맵 경계 밖으로 나가지 않도록 클램핑

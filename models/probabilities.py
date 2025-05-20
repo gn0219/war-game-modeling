@@ -4,22 +4,22 @@ from enum import Enum
 from typing import Dict, Tuple
 
 class TargetState(Enum):
-    ES = "ES(노출/정지)"  # Exposed/Stationary
-    EM = "EM(노출/기동)"  # Exposed/Moving
-    DS = "DS(차폐/정지)"  # Defilade/Stationary
-    DM = "DM(차폐/기동)"  # Defilade/Moving
+    ES = "ES" # "ES(노출/정지)"  # Exposed/Stationary
+    EM = "EM" # "EM(노출/기동)"  # Exposed/Moving
+    DS = "DS" # "DS(차폐/정지)"  # Defilade/Stationary
+    DM = "DM" # "DM(차폐/기동)"  # Defilade/Moving
 
 class DamageType(Enum):
-    MINOR = "Minor (경상)"
-    SERIOUS = "Serious (중상)"
-    CRITICAL = "Critical (치명상)"
-    FATAL = "Fetal (사망)"
+    MINOR = "Minor" # 경상
+    SERIOUS = "Serious" # 중상
+    CRITICAL = "Critical" # 치명상
+    FATAL = "Fetal" # 사망
 
 class TankDamageType(Enum):
-    MOBILITY = "기동력 파괴확률"
-    FIREPOWER = "화력 파괴확률"
-    TURRET = "솟 파괴확률"
-    COMPLETE = "완파 확률"
+    MOBILITY = "M-Kill" # "기동력 파괴확률" 
+    FIREPOWER = "F-Kill" # "화력 파괴확률"
+    TURRET = "MF-Kill" # "솟 파괴확률"
+    COMPLETE = "K-Kill" #"완파 확률"
 
 class ProbabilitySystem:
     def __init__(self):
@@ -46,12 +46,12 @@ class ProbabilitySystem:
     def get_rifle_damage_probability(self, distance: float, target_state: TargetState) -> Dict[DamageType, float]:
         """Get rifle damage probabilities for different damage types"""
         # Find the closest distance in the table
-        distances = self.rifle_damage_prob['거리(m)'].unique()
+        distances = self.rifle_damage_prob['Distance (m)'].unique()
         closest_distance = distances[np.abs(distances - distance).argmin()]
         
         # Filter for the specific distance and target state
-        mask = (self.rifle_damage_prob['거리(m)'] == closest_distance) & \
-               (self.rifle_damage_prob['표적 상태'] == target_state.value)
+        mask = (self.rifle_damage_prob['Distance (m)'] == closest_distance) & \
+               (self.rifle_damage_prob['State'] == target_state.value)
         
         row = self.rifle_damage_prob[mask].iloc[0]
         
@@ -62,18 +62,34 @@ class ProbabilitySystem:
             DamageType.FATAL: row[DamageType.FATAL.value]
         }
     
-    def get_tank_damage_probability(self, target_state: TargetState) -> Dict[TankDamageType, float]:
-        """Get tank damage probabilities for different damage types"""
-        # Filter for the specific target state
-        mask = self.tank_damage_prob['표적 상태'] == target_state.value
+    # def get_tank_damage_probability(self, target_state: TargetState) -> Dict[TankDamageType, float]:
+    #     """Get tank damage probabilities for different damage types"""
+    #     # Filter for the specific target state
+    #     print('test', target_state.value)
+    #     mask = self.tank_damage_prob['표적 상태'] == target_state.value
         
-        probabilities = {}
-        for damage_type in TankDamageType:
-            row = self.tank_damage_prob[mask & (self.tank_damage_prob['손상 유형'] == damage_type.value)].iloc[0]
-            probabilities[damage_type] = row['P_{k/h}']
+    #     probabilities = {}
+    #     for damage_type in TankDamageType:
+    #         row = self.tank_damage_prob[mask & (self.tank_damage_prob['손상 유형'] == damage_type.value)].iloc[0]
+    #         probabilities[damage_type] = row['P_{k/h}']
         
-        return probabilities
+    #     return probabilities
     
+    def get_tank_damage_probability(self, target_state: TargetState) -> Dict[TankDamageType, float]:
+        probabilities = {}
+        column_name = target_state.name
+
+        for damage_type in TankDamageType:
+            row = self.tank_damage_prob[self.tank_damage_prob['Kill Type'] == damage_type.value]
+
+            if not row.empty:
+                probabilities[damage_type] = float(row.iloc[0][column_name])
+            else:
+                probabilities[damage_type] = 0.0
+
+        return probabilities
+
+
     def determine_rifle_damage(self, distance: float, target_state: TargetState) -> DamageType:
         """Determine rifle damage type based on probabilities"""
         probs = self.get_rifle_damage_probability(distance, target_state)

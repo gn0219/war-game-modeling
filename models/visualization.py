@@ -31,7 +31,7 @@ plt.rcParams['axes.unicode_minus'] = False  # Fix minus sign display
 
 class SimulationVisualizer:
     def __init__(self, config=None):
-        self.bg_path = os.path.join("results", "background.png")
+        self.bg_path = os.path.join("database", "background.png")
         self.bg_img = mpimg.imread(self.bg_path)
         self.img_height, self.img_width = self.bg_img.shape[0], self.bg_img.shape[1]
         self.fig = plt.figure(figsize=(16, 9))

@@ -20,7 +20,7 @@ class TerrainSystem:
         self.dem_height, self.dem_width = self.dem_data.shape  # y: 0-448, x: 0-748
         
         # Load background image dimensions
-        bg_img = Image.open("results/background.png")
+        bg_img = Image.open("database/background.png")
         self.img_width, self.img_height = bg_img.size
         
         # Terrain thresholds

@@ -99,11 +99,12 @@ def run_simulation(cfg):
     print(f"Starting simulation... (with_drone={cfg.get('with_drone', True)}, max_time={max_time}, output_dir={cfg['output_dir']})")
     
     # Get background image size for bounds
-    bg_img = imread(os.path.join("results", "background.png"))
+    bg_img = imread(os.path.join("database", "background.png"))
     img_height, img_width = bg_img.shape[0], bg_img.shape[1]
-    
+
     # 시뮬레이션 루프
     while current_time < max_time:
+        print("Current time / max_time: ", current_time, "/", max_time)
         # ── 예약된 MOVE/FIRE 이벤트 처리 ────────────────────────────
         while event_queue.peek_next_time() is not None and event_queue.peek_next_time() <= current_time:
             evt = event_queue.get_next_event()
@@ -139,7 +140,7 @@ def run_simulation(cfg):
                     ))
                 # 2) 교전 후 상태에 따른 분류: 기동 정지 혹은 경로 탐색
                 st = evt.actor.state
-                if st in [UnitState.ALIVE, UnitState.F_KILL]:
+                if st in [UnitState.ALIVE, UnitState.F_KILL] and evt.actor.current_goal is not None:
                     # 살아 있거나 화력만 파괴된 경우: 기존 목표로 기동 재예약
                     combat_system.maneuver(
                         unit=evt.actor,
@@ -165,8 +166,8 @@ def run_simulation(cfg):
                 'status': unit.state.value,
                 'action': unit.action.value if hasattr(unit.action, 'value') else unit.action,
                 'health': unit.unit.health,
-                'target_list': [t.id for t in getattr(unit, 'target_list', [])],
-                'eligible_target_list': [t.id for t in getattr(unit, 'eligible_target_list', [])],
+                'target_list': [t.unit.id for t in getattr(unit, 'target_list', [])],
+                'eligible_target_list': [t.unit.id for t in getattr(unit, 'eligible_target_list', [])],
             } for unit in units],
             terrain_state={'timestamp': current_time},
             combat_state={'timestamp': current_time}
@@ -262,11 +263,6 @@ def run_simulation(cfg):
     # 시각화 생성
     print("visualizer.img_height, visualizer.img_width: ", visualizer.img_height, visualizer.img_width)
     visualizer.create_map_visualization(final_units, current_time, output_file=os.path.join(cfg['output_dir'], "final_state.png"))
-    
-    # 배경 이미지 저장
-    bg_path = os.path.join("results", "background.png")
-    if not os.path.exists(bg_path):
-        visualizer.save_background_image(bg_path)
 
     visualizer.create_animation(
         logger.state_snapshots,

@@ -1,4 +1,4 @@
-Range(m),State,Minor,Serious,Critical,Fetal
+Distance (m),State,Minor,Serious,Critical,Fetal
 100,ES,0.3,0.3,0.25,0.15
 100,EM,0.35,0.3,0.2,0.15
 100,DS,0.4,0.3,0.2,0.1
