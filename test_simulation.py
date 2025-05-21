@@ -204,8 +204,20 @@ def run_simulation(cfg):
 
         # ── 기동 명령 예약 ───────────────────────────────────
         for unit in units:
-            if not unit.unit.is_alive() or unit.unit.unit_type == UnitType.COMMAND_POST:
+            if not unit.unit.is_alive() or unit.unit.health <= 0 or unit.unit.unit_type == UnitType.COMMAND_POST:
                 continue
+
+            # 적 탐지 및 타겟 선정 (지휘소 제외)
+            combat_system.detect(unit, units, terrain_system)
+            combat_system.available_target(unit)
+            
+            # 타겟이 있으면 사격 이벤트 예약
+            if unit.eligible_target_list:
+                # 이미 파괴된 유닛 제외
+                unit.eligible_target_list = {t for t in unit.eligible_target_list if t.unit.health > 0}
+                if unit.eligible_target_list:  # 남은 타겟이 있는 경우에만 사격
+                    combat_system.finding_target(unit, event_queue, current_time)
+                    continue
 
             # 페이즈별 목표 가져오기
             goal = (command_system.red_command if unit.unit.team == "RED"
@@ -225,8 +237,8 @@ def run_simulation(cfg):
         current_time += time_step
         
         # 승리 조건 확인
-        red_units = [u for u in units if u.unit.team == 'RED' and u.unit.is_alive()]
-        blue_units = [u for u in units if u.unit.team == 'BLUE' and u.unit.is_alive()]
+        red_units = [u for u in units if u.unit.team == 'RED' and u.unit.is_alive() and u.unit.health > 0]
+        blue_units = [u for u in units if u.unit.team == 'BLUE' and u.unit.is_alive() and u.unit.health > 0]
         
         if not red_units:
             print(f"\nTime {current_time:.1f}: Blue Team Wins!")

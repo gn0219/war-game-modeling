@@ -29,12 +29,23 @@ class StateSnapshot:
     terrain_state: Dict
     combat_state: Dict
 
+    def to_dict(self):
+        return {
+            "timestamp": self.timestamp,
+            "units": self.units,
+            "terrain_state": self.terrain_state,
+            "combat_state": self.combat_state
+        }
+
 class SimulationLogger:
-    def __init__(self, log_file: str = "simulation_log.json"):
+    def __init__(self, log_file: str):
         self.log_file = log_file
-        self.events: List[Event] = []
-        self.state_snapshots: List[StateSnapshot] = []
-        
+        self.events = []
+        self.state_snapshots = []
+        # 이벤트와 상태 스냅샷을 위한 별도의 파일 경로 생성
+        self.events_file = log_file.replace('.json', '_events.json')
+        self.snapshots_file = log_file.replace('.json', '_snapshots.json')
+
     def log_event(self, event: Event):
         """Log a single event"""
         self.events.append(event)
@@ -45,18 +56,12 @@ class SimulationLogger:
         
     def save_logs(self):
         """Save all logs to file"""
-        log_data = {
-            "events": [asdict(event) for event in self.events],
-            "state_snapshots": [asdict(snapshot) for snapshot in self.state_snapshots],
-            "metadata": {
-                "timestamp": int(datetime.now().timestamp()),
-                "total_events": len(self.events),
-                "total_snapshots": len(self.state_snapshots)
-            }
-        }
+        # 이벤트와 상태 스냅샷을 별도의 파일로 저장
+        with open(self.events_file, 'w') as f:
+            json.dump([e.to_dict() for e in self.events], f, indent=2)
         
-        with open(self.log_file, 'w') as f:
-            json.dump(log_data, f, indent=2)
+        with open(self.snapshots_file, 'w') as f:
+            json.dump([s.to_dict() for s in self.state_snapshots], f, indent=2)
             
     def get_events_by_type(self, event_type: str) -> List[Event]:
         """Get all events of a specific type"""

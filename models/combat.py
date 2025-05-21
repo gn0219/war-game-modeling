@@ -50,6 +50,7 @@ class CombatUnit:
     eligible_target_list: Optional[Set[Unit]] = None
     is_moving: bool = False
     is_defilade: bool = False
+    current_goal: Optional[Tuple[float, float]] = None  # 현재 목표 위치 추가
     # 탐지 관련 필드
     detect_range: float = 1000
     detectability: float = 1.0
@@ -229,7 +230,10 @@ class CombatSystem:
 
     def _select_artillery_target(self, unit: CombatUnit) -> CombatUnit:
         """곡사화기(포병)용 타겟 선정 (우선순위/아군 피해 고려)"""
-        candidates = list(unit.eligible_target_list)
+        # 체력이 0보다 큰 유닛만 필터링
+        candidates = [t for t in unit.eligible_target_list if t.unit.health > 0]
+        if not candidates:
+            return None
         
         # 우군 피해 위험도 계산
         friendly_fire_scores = {
@@ -262,7 +266,11 @@ class CombatSystem:
 
     def _select_direct_fire_target(self, unit: CombatUnit) -> CombatUnit:
         """직사화기(직접 조준) 무기용 타겟 선정 (가장 가까운 단일 적)"""
-        return min(unit.eligible_target_list, key=lambda t: self._calculate_distance(unit.unit.position, t.unit.position))
+        # 체력이 0보다 큰 유닛만 필터링
+        valid_targets = {t for t in unit.eligible_target_list if t.unit.health > 0}
+        if not valid_targets:
+            return None
+        return min(valid_targets, key=lambda t: self._calculate_distance(unit.unit.position, t.unit.position))
 
     def _schedule_fire(self, unit: CombatUnit, target: CombatUnit, event_queue: EventQueue, current_time: float):
         """FEL(이벤트 큐)에 단일 타겟 사격 이벤트 예약"""
@@ -276,11 +284,15 @@ class CombatSystem:
 
     def fire(self, unit: CombatUnit, target: CombatUnit, event_queue: EventQueue, current_time: float):
         """단일 타겟에 대한 사격 이벤트 실행"""
+        print(f"\nFire event triggered: {unit.unit.id} -> {target.unit.id}")
         if target not in unit.eligible_target_list:
+            print(f"Target {target.unit.id} not in eligible targets for {unit.unit.id}")
             return
         if unit.unit.unit_type == UnitType.ARTILLERY:
+            print(f"Artillery fire from {unit.unit.id}")
             self._artillery_fire(unit, target, event_queue, current_time)
         else:
+            print(f"Direct fire from {unit.unit.id}")
             self._direct_fire(unit, target, event_queue, current_time)
         unit.action = Action.STOP
 
@@ -360,33 +372,23 @@ class CombatSystem:
 
 
     def _direct_fire(self, unit: CombatUnit, target: CombatUnit, event_queue: EventQueue, current_time: float):
-        """
-        직사화기(소총/대전차/지휘관) 사격 및 피해 처리
-        [1] 명중확률 P_h 불러오기
-        [2] 난수로 명중 여부 판정
-        [3] 조건부 살상확률 P_k/h 불러오기 → 보간/테이블 참조는 ProbabilitySystem 에서
-        [4] 파괴확률 계산 (보간법) → determine_*_damage 에서 누적확률 방식으로 수행
-        [5] 난수로 피해 타입 결정
-        [6] 피해 타입별 표적 상태 무력화 판정
-            - 탱크·곡사포: MF-kill 이상이면 "무력화 성공" (재탐색 대신 후속 사격 중지)
-            - 소총·대전차·지휘관: 치명상(Fatal)이면 "무력화 성공"
-            - 실패 시 동일 목표에 대해 즉시 재사격 예약(또는 다음 틱에 탐지→발사 루틴에서 자동 반복)
-        [7] 재장전 타이머 설정 및 STOP 이벤트 예약
-            - Infantry(Rifle): uniform(2.0, 3.0)
-            - Anti-Tank: uniform(5.0, 7.0)
-            - Tank: triangular(6.0,12.0,8.0)  → 평균 8초
-            => 따로 재장전 함수를 만든다.
-        """
+        """직사화기 사격 처리"""
+        print(f"Direct fire processing: {unit.unit.id} -> {target.unit.id}")
         distance = self._calculate_distance(unit.unit.position, target.unit.position)
         weapon_type = "tank" if unit.unit.unit_type == UnitType.TANK else "rifle"
+        print(f"Weapon type: {weapon_type}, Distance: {distance}")
+        
         # [1] 명중 확률
         hit_prob = self.prob_system.get_hit_probability(
             weapon_type,
             distance,
             target.get_target_state()
         )
+        print(f"Hit probability: {hit_prob}")
+        
         # [2] 명중 여부, 빗나감 -> 재장전만 예약
         if np.random.random() > hit_prob:
+            print(f"Miss! Scheduling reload for {unit.unit.id}")
             reload_delay = self._get_reload_delay(unit.unit.unit_type)
             reload_evt = SimulationEvent(
                 time=current_time + reload_delay,
@@ -397,17 +399,20 @@ class CombatSystem:
             event_queue.schedule(reload_evt)
             return
 
+        print(f"Hit! Processing damage for {target.unit.id}")
         # [3]~[5] 난수로 피해 판정 수행
-        # FATAL, K-KILL도 무력화
         if weapon_type == "rifle":
             dmg_type = self.prob_system.determine_rifle_damage(distance, target.get_target_state())
+            print(f"Rifle damage type: {dmg_type}")
             self._process_rifle_damage(unit, target, distance)
             incapacitated = (dmg_type in (DamageType.CRITICAL, DamageType.FATAL))
         else:
             dmg_type = self.prob_system.determine_tank_damage(target.get_target_state())
+            print(f"Tank damage type: {dmg_type}")
             self._process_tank_damage(unit, target)
             incapacitated = (dmg_type in (TankDamageType.TURRET, TankDamageType.COMPLETE))
         
+        print(f"Target {target.unit.id} incapacitated: {incapacitated}")
         # [6] 무력화 판단
         '''무력화 된 후에 다른 target 경우 - 다시 Main loop 로직 돌기
         무력화 안 된 경우만 재장전 후 바로 재사격'''
@@ -454,30 +459,48 @@ class CombatSystem:
             distance,
             target.get_target_state()
         )
-        if damage_type == DamageType.FATAL:
+        # 피해량 계산 및 적용
+        damage = self.DAMAGE_VALUES['rifle'][damage_type]
+        old_health = target.unit.health
+        target.unit.health = max(0, old_health - damage)
+        print(f"Rifle damage: {unit.unit.id} -> {target.unit.id}, Type: {damage_type}, Damage: {damage}, Health: {old_health} -> {target.unit.health}")
+        
+        if target.unit.health <= 0:
             target.state = UnitState.K_KILL
+            print(f"Unit {target.unit.id} KILLED by rifle fire")
+        elif damage_type == DamageType.FATAL:
+            target.state = UnitState.K_KILL
+            print(f"Unit {target.unit.id} KILLED by fatal rifle damage")
         elif damage_type == DamageType.CRITICAL:
             target.state = UnitState.MF_KILL
         elif damage_type == DamageType.SERIOUS:
             target.state = UnitState.F_KILL
         elif damage_type == DamageType.MINOR:
             target.state = UnitState.M_KILL
-        # 모두 해당 아닌 경우: alive 자동 처리
 
     def _process_tank_damage(self, unit: CombatUnit, target: CombatUnit):
         """전차류 피해 처리 (피해 타입별로 상태 변경)"""
         damage_type = self.prob_system.determine_tank_damage(
             target.get_target_state()
         )
-        if damage_type == TankDamageType.COMPLETE:
+        # 피해량 계산 및 적용
+        damage = self.DAMAGE_VALUES['tank'][damage_type]
+        old_health = target.unit.health
+        target.unit.health = max(0, old_health - damage)
+        print(f"Tank damage: {unit.unit.id} -> {target.unit.id}, Type: {damage_type}, Damage: {damage}, Health: {old_health} -> {target.unit.health}")
+        
+        if target.unit.health <= 0:
             target.state = UnitState.K_KILL
+            print(f"Unit {target.unit.id} KILLED by tank fire")
+        elif damage_type == TankDamageType.COMPLETE:
+            target.state = UnitState.K_KILL
+            print(f"Unit {target.unit.id} KILLED by complete tank damage")
         elif damage_type == TankDamageType.FIREPOWER:
             target.state = UnitState.F_KILL
         elif damage_type == TankDamageType.MOBILITY:
             target.state = UnitState.M_KILL
         elif damage_type == TankDamageType.TURRET:
             target.state = UnitState.MF_KILL
-        # 모두 해당 아닌 경우: alive 자동 처리
 
     # 사거리 constraint (현재 사용 안되고 있는 함수)
     def is_in_range(self, unit: CombatUnit, target: CombatUnit) -> bool:

@@ -1,7 +1,7 @@
 # War Game Simulation
 
 ## 개요
-이 프로젝트는 전쟁 게임 시뮬레이션을 구현한 Python 기반 애플리케이션입니다. `background.png` 이미지를 기반으로 유닛의 위치, 이동, 전투를 시뮬레이션하고 시각화합니다.
+이 프로젝트는 전쟁 게임 시뮬레이션을 구현한 Python 기반 애플리케이션입니다. `database/background.png` 이미지를 기반으로 유닛의 위치, 이동, 전투를 시뮬레이션하고 시각화합니다.
 
 ## 주요 기능
 - 유닛 위치 및 이동 시뮬레이션
@@ -18,48 +18,53 @@
 - 기타 오류 수정
     - CombatUnit Hashable Type으로 변경
     - 단위 시간당 하나의 actor가 여러 target 공격 가능하였던 것을, 하나의 time에 대해 하나의 actor가 하나의 target만 공격 가능하도록 수정
+    - 유닛이 죽지 않는 오류 수정
+- 로거 분리
+    - events와 state_snapshots 따로 저장
+- 기타
+    - 시뮬레이션 시간이 오래걸려서 원본 config.yaml은 config copy.yaml에 저장하고, 잠시 유닛 개수를 모두 2개로 줄여서 실행해보는중임 (나중에 버그 모두 해결되면 유닛 개수 다시 수정할 예정)
 
-## TODO
+## TODO (2025-05-20 수정)
+- 오류 수정 필요
+    - 드론이 거의 순간이동함..
+    - 움직이지 않는 유닛이 있음
+    - 유닛이 죽지 않음
 - 드론 구현 필요
-- 유닛 Action 조정
-- Eligible_target_list 사용하지 않음
+- 지금 Eligible_target_list 사용하지 않고 있음 --> 나중에 구현해보고 필요없으면 삭제해도 될 듯
 - 지형 특성 반영 구조 추가
     - 가시선 분석 (현재 x, y 좌표만 사용) - `combat.py`, `def los` function 내 조정 필요
     - 수로 등 장애물 인식
-- flowchart와 흐름 일치하는지 검토
-- target_list, eligible_target_list 고려 (지금은 target_id로 제작)
-- `background.png` scale 조정 (조금 더 확대하기)
-- 화력: 표적 우선순위 고려하지 않은 것 같음
+- 시각화 수정: 자잘자잘한 오류가 많아서 시각화까지 수정할 수 있을지는 모르겠음
 
 
 ## 프로젝트 구조
 ```
 war-game-modeling/
-├── test_simulation.py      # 시뮬레이션 테스트 및 실행
-├── config.yaml             # 시뮬레이션 설정 파일
-├── requirements.txt        # 의존성 패키지 목록
-├── README.md               # 프로젝트 문서
-├── models/                 # 핵심 모델 구현
-│   ├── combat.py           # 전투 시스템
-│   ├── command.py          # 명령 시스템
-│   ├── events.py           # 이벤트 관리
-│   ├── game_state.py       # 게임 상태 관리
-│   ├── logging.py          # 로깅 시스템
-│   ├── probabilities.py    # 확률 계산
-│   ├── terrain.py          # 지형 시스템
-│   ├── unit.py             # 유닛 정의
-│   └── visualization.py    # 시각화 시스템
-├── database/               # 데이터 파일
-│   ├── rifle_hit_prob.csv  # 소총 명중 확률
-│   ├── rifle_damage_prob.csv # 소총 피해 확률
-│   ├── tank_hit_prob.csv   # 전차 명중 확률
-│   └── tank_damage_prob.csv # 전차 피해 확률
-└── results/                # 시뮬레이션 결과
-    ├── background.png      # 배경 이미지
-    ├── simulation_log.json # 시뮬레이션 로그
-    ├── simulation_metrics.png # 시뮬레이션 결과 그래프
-    ├── final_state.png        # 종료 시점 이미지
-    └── simulation.mp4      # 시뮬레이션 동영상
+├── test_simulation.py                # 시뮬레이션 테스트 및 실행
+├── config.yaml                       # 시뮬레이션 설정 파일
+├── requirements.txt                  # 의존성 패키지 목록
+├── README.md                         # 프로젝트 문서
+├── models/                           # 핵심 모델 구현
+│   ├── combat.py                     # 전투 시스템
+│   ├── command.py                    # 명령 시스템
+│   ├── events.py                     # 이벤트 관리
+│   ├── logging.py                    # 로깅 시스템
+│   ├── probabilities.py              # 확률 계산
+│   ├── terrain.py                    # 지형 시스템
+│   ├── unit.py                       # 유닛 정의
+│   └── visualization.py              # 시각화 시스템
+├── database/                         # 데이터 파일
+    ├── background.png                # 배경 이미지
+│   ├── rifle_hit_prob.csv            # 소총 명중 확률
+│   ├── rifle_damage_prob.csv         # 소총 피해 확률
+│   ├── tank_hit_prob.csv             # 전차 명중 확률
+│   └── tank_damage_prob.csv          # 전차 피해 확률
+└── results/                          # 시뮬레이션 결과
+    ├── simulation_log_events.json    # 시뮬레이션 로그
+    ├── simulation_log_snapshots.json # 시뮬레이션 로그
+    ├── simulation_metrics.png        # 시뮬레이션 결과 그래프
+    ├── final_state.png               # 종료 시점 이미지
+    └── simulation.mp4                # 시뮬레이션 동영상
 ```
 
 ## 시뮬레이션 프로세스
@@ -111,9 +116,6 @@ war-game-modeling/
 
 ### models/events.py
 이벤트 큐를 관리합니다. 시뮬레이션 중 발생하는 이벤트를 시간순으로 처리합니다.
-
-### models/game_state.py
-게임 상태를 관리합니다. 팀 초기화, 전투력 평가, 단계 전환 등을 처리합니다.
 
 ### models/logging.py
 로깅 시스템을 구현합니다. 이벤트와 상태 스냅샷을 기록하고 저장합니다.

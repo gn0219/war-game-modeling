@@ -283,11 +283,19 @@ class SimulationVisualizer:
         pbar.close()
 
     def plot_metrics(self, log_file: str):
-        with open(log_file, 'r') as f:
-            log_data = json.load(f)
+        """Plot various metrics from the simulation log"""
+        # 이벤트와 스냅샷 파일 경로
+        events_file = log_file.replace('.json', '_events.json')
+        snapshots_file = log_file.replace('.json', '_snapshots.json')
+        
+        # 이벤트와 스냅샷 데이터 로드
+        with open(events_file, 'r') as f:
+            events = json.load(f)
+        with open(snapshots_file, 'r') as f:
+            snaps = json.load(f)
 
         # 1) 시간순으로 스냅샷 정렬
-        snaps = sorted(log_data['state_snapshots'], key=lambda s: s['timestamp'])
+        snaps = sorted(snaps, key=lambda s: s['timestamp'])
         timestamps = [s['timestamp'] for s in snaps]
 
         # 2) 전체 Alive 유닛 수
@@ -299,7 +307,7 @@ class SimulationVisualizer:
                     for s in snaps]
 
         # 3) 전투 이벤트 타임스탬프
-        combat_events = [e['timestamp'] for e in log_data['events']
+        combat_events = [e['timestamp'] for e in events
                         if e['event_type']=='COMBAT']
 
         # 4) 유형별 Alive 유닛 수 집계
@@ -361,7 +369,8 @@ class SimulationVisualizer:
 
         ax3.set_xlabel('Time')
         plt.tight_layout()
-        plt.savefig(os.path.join(self.output_dir, 'simulation_metrics.png'))
+        plt.savefig(os.path.join(os.path.dirname(log_file), 'simulation_metrics.png'))
+        plt.close()
 
     def create_interactive_visualization(self, state_snapshots: List[StateSnapshot], events: list = None, unit_type_list=None, team_list=None, total_counts=None, kill_log_duration: float = 3.0):
         """Interactive visualization with a slider to move through time frames."""
