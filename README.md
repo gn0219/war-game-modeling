@@ -9,12 +9,20 @@
 - 시각화 및 애니메이션 생성
 - 전투 로그 저장
 
+## Version Information
+NOTE: 브랜치 명 바꿈. 아래 설명 참고
+- [Initial branch](https://github.com/gn0219/war-game-modeling/tree/initial)
+    - 2025-05-13: Merged pull request from @sheom1991
+        - Updated map data, set inital position, and established coordinate system and command structure
+    - 2025-05-12: Initial project setup by @gn0219
+
+- [Main branch](https://github.com/gn0219/war-game-modeling)
+    - 2025-05-20: Bug fixes by @gn0219
+    - 2025-05-19: Merged from @mintyoon826's [repository](https://github.com/mintyoon826/war-game-modeling)
+        - Implemented mobility (기동) and firepower (화력) logic
+
 ## 2025-05-20 규나 변경사항
 - 화력 변수명 통일 (모두 영어로 통일)
-    - 거리 (m) -> Distance (m)
-    - 표적 상태 -> State
-    - 손상 유형 -> Kill type
-    - 그외 M-Kill 등으로 수정
 - 기타 오류 수정
     - CombatUnit Hashable Type으로 변경
     - 단위 시간당 하나의 actor가 여러 target 공격 가능하였던 것을, 하나의 time에 대해 하나의 actor가 하나의 target만 공격 가능하도록 수정
