@@ -10,7 +10,6 @@
 - 전투 로그 저장
 
 ## Version Information
-NOTE: 브랜치 명 바꿈. 아래 설명 참고
 - [Initial branch](https://github.com/gn0219/war-game-modeling/tree/initial)
     - 2025-05-13: Merged pull request from @sheom1991
         - Updated map data, set inital position, and established coordinate system and command structure
@@ -21,7 +20,7 @@ NOTE: 브랜치 명 바꿈. 아래 설명 참고
     - 2025-05-19: Merged from @mintyoon826's [repository](https://github.com/mintyoon826/war-game-modeling)
         - Implemented mobility (기동) and firepower (화력) logic
 
-## 2025-05-20 규나 변경사항
+## 2025-05-20 변경사항
 - 화력 변수명 통일 (모두 영어로 통일)
 - 기타 오류 수정
     - CombatUnit Hashable Type으로 변경
@@ -34,15 +33,15 @@ NOTE: 브랜치 명 바꿈. 아래 설명 참고
 
 ## TODO (2025-05-20 수정)
 - 오류 수정 필요
-    - 드론이 거의 순간이동함..
-    - 움직이지 않는 유닛이 있음
-    - 유닛이 죽지 않음
+    - 드론 이동 속도 조정
+    - 움직이지 않는 유닛 조정
+    - 파괴되지 않는 유닛 조정
 - 드론 구현 필요
-- 지금 Eligible_target_list 사용하지 않고 있음 --> 나중에 구현해보고 필요없으면 삭제해도 될 듯
+- Eligible_target_list 사용하도록 변경
 - 지형 특성 반영 구조 추가
     - 가시선 분석 (현재 x, y 좌표만 사용) - `combat.py`, `def los` function 내 조정 필요
     - 수로 등 장애물 인식
-- 시각화 수정: 자잘자잘한 오류가 많아서 시각화까지 수정할 수 있을지는 모르겠음
+- 시각화 수정
 
 
 ## 프로젝트 구조
